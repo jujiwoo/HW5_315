@@ -1,0 +1,143 @@
+---
+title: "HW5_315"
+author: "Justin Song - jjs5874 - Scott - https://github.com/jujiwoo/HW5_315"
+date: "2024-02-26"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(fig.height=5, fig.width=10, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=100))
+```
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+setwd('/users/justinsong/downloads')
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(knitr)
+library(mosaic)
+brown = readLines("brown_sentences.txt")
+letter = read.csv('letter_frequencies.csv')
+```
+
+# Problem 1
+
+Null Hypothesis: Over the long run, the rate at which trades from Iron Bank employees are flagged is equal to the 2.4% baseline rate.
+
+Test Statistic: Number of flagged trades out of the total (70/2021 = 2.4%)
+
+Plot:
+```{r, echo=FALSE}
+sim_ironbank = do(100000)*nflip(n=2021, prob=0.024)
+
+ggplot(sim_ironbank) + 
+  geom_histogram(aes(x=nflip), binwidth=1)
+```
+
+P-Value:
+```{r}
+pvalue_ironbank = sum(sim_ironbank > 70)/100000
+pvalue_ironbank
+```
+Conclusion: With a very small p-value, the data provide strong evidence against the null hypothesis. The rate of flagged trades at Iron Bank looks much higher than what we would expect by chance alone, warranting further investigation.
+
+\newpage
+
+# Problem 2
+
+Null Hypothesis: The rate of health code violations at Gourmet Bites restaurants is equal to the citywide baseline rate of 3%.
+
+Test Statistic: Number of violation inspections out of total inspections (8/50 = 16%)
+
+Plot:
+```{r, echo=FALSE}
+sim_gourmet = do(100000)*nflip(n=50, prob=0.03)
+
+ggplot(sim_gourmet) + 
+  geom_histogram(aes(x=nflip), binwidth=1)
+```
+
+P-Value:
+
+```{r}
+pvalue_gourmet = sum(sim_gourmet >= 8)/100000
+pvalue_gourmet
+```
+
+Conclusion: The p-value is very small, indicating strong evidence to reject the null hypothesis. The data suggest that Gourmet Bites restaurants are cited for health code violations at a rate significantly higher than the 3% citywide baseline rate.
+
+\newpage
+
+# Problem 3
+**Part (A)**
+
+```{r, echo=FALSE}
+
+calc_chi = function(sentence, letter) {
+
+  clean_sent = gsub("[^A-Za-z]", "", sentence)
+  clean_sent = toupper(clean_sent)
+
+  observed_count = table(factor(strsplit(clean_sent, "")[[1]], levels = letter$Letter))
+  total_letter = sum(observed_count)
+
+  expected_count = total_letter * letter$Probability
+
+  chi_square = sum((observed_count - expected_count)^2 / expected_count)
+
+  return(chi_square)
+}
+
+brown_chi = sapply(brown, function(sentence) {
+            calc_chi(sentence, letter)
+          })
+
+brown_chi = data.frame(brown_chi)
+
+ggplot(brown_chi) + geom_histogram(aes(x = brown_chi), bins = 30) + labs(title= 'Null Distribution of Chi-Squared Values', x = 'Brown Chi Square Values', y = 'Count')
+
+```
+**Part B**
+
+```{r, echo=FALSE}
+ten_sent = c("She opened the book and started to read the first chapter, eagerly anticipating what might come next.", "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the
+fountain in the center.", "The museum’s new exhibit features ancient artifacts from various civilizations around the world.", "He carefully examined the document, looking for any clues that might help solve the mystery.", "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.", "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening
+at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to
+Auckland.", "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing
+mainly on some excellent dinner recipes from Spain.", "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.", "The committee reviewed the proposal and provided many points of useful feedback to improve the
+project’s effectiveness.", "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful
+completion, resulting in a product that exceeded everyone’s expectations.")
+
+ten_chi = c()
+ten_pvalue = c()
+
+for(sentence in ten_sent){
+  sen_chi = calc_chi(sentence, letter)
+  ten_chi = c(ten_chi, sen_chi)
+}
+
+for (chi in ten_chi){
+  sen_pvalue = sum(brown_chi >= chi) / 56745
+  sen_pvalue = round(sen_pvalue, 3)
+  ten_pvalue = c(ten_pvalue, sen_pvalue)
+}
+
+ten_chi = data.frame(ten_chi)
+sen_count = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
+sen_count = factor(sen_count, levels = 1:10)
+ten_chi = cbind(sen_count, ten_chi)
+
+ggplot(ten_chi) +
+  geom_point(aes(x = sen_count, y = ten_chi), col = 'black') + labs(x = sen_count, y = "Ten Sentence Chi-Square Values")
+
+ten_sen_table = data.frame(ten_pvalue)
+ten_sen_table = cbind(sen_count, ten_pvalue)
+
+kable(ten_sen_table, col.names = c("Sentence", "P-Value"))
+```
+
+Sentence 6 has by far the lowest p-value at 0.009, indicating its letter frequencies deviate significantly from the expected English distribution. The other sentences have p-values ranging from 0.059 to 0.988, reflecting typical variance seen in natural English sentences. The extremely low p-value for sentence 6 is strong statistical evidence that its underlying letter frequencies do not match the null English distribution.
+
+
